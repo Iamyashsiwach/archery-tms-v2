@@ -18,7 +18,6 @@
   },
   "include": [
     "src/lib/rules/**/*.ts",
-    "src/lib/safe-next.ts",
-    "src/lib/safe-next.test.ts"
+    "src/lib/*.ts"
   ]
 }

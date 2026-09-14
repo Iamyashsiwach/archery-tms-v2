@@ -2,6 +2,7 @@ import "server-only";
 
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { resolveSiteUrl } from "@/lib/site-url";
 
 export function supabaseConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -11,7 +12,7 @@ export function supabaseConfig() {
 }
 
 export function siteUrl() {
-  const url = process.env.SITE_URL;
+  const url = resolveSiteUrl(process.env);
   if (!url) throw new Error("SITE_URL is not set. Copy .env.local.example to .env.local.");
   return url;
 }
