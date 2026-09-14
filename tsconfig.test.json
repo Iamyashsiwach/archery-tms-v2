@@ -1,16 +1,24 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022"],
+    "lib": [
+      "ES2022"
+    ],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "outDir": "dist",
     "rootDir": "src",
     "noEmit": false
   },
-  "include": ["src/lib/rules/**/*.ts"]
+  "include": [
+    "src/lib/rules/**/*.ts",
+    "src/lib/safe-next.ts",
+    "src/lib/safe-next.test.ts"
+  ]
 }

@@ -1,4 +1,4 @@
--- RLS test plan for 0002_policies.sql
+-- Security test plan for supabase/migrations: RLS (0002) and invites (0003).
 --
 -- Paste the whole file into the Supabase SQL editor and run it.
 -- It returns one row per check, failures first. Every row must have pass = true.
@@ -28,7 +28,9 @@ begin
   return p_sql;
 end $$;
 
-create or replace function pg_temp.attempt(p_user uuid, p_sql text) returns text
+-- p_verify, when given, runs as the owner after p_sql succeeds and replaces
+-- the count, to prove a side effect happened (a row changed, an audit entry).
+create or replace function pg_temp.attempt(p_user uuid, p_sql text, p_verify text default null) returns text
 language plpgsql as $$
 declare n bigint; err text;
 begin
@@ -43,6 +45,11 @@ begin
     else
       execute p_sql;
       get diagnostics n = row_count;
+    end if;
+
+    if p_verify is not null then
+      reset role;
+      execute format('select count(*) from (%s) q', p_verify) into n;
     end if;
 
     raise exception 'attempt_rollback';
@@ -67,9 +74,9 @@ declare
 begin
   select jsonb_object_agg(k, gen_random_uuid()) into ids
   from unnest(array[
-    'U_OFF','U_JUDGE','U_COACH','U_COACH2','U_REVOKED','U_OUT',
+    'U_OFF','U_JUDGE','U_COACH','U_COACH2','U_REVOKED','U_OUT','U_INVITEE','U_UNCONF',
     'T1','T2',
-    'M_OFF','M_JUDGE','M_COACH','M_COACH2','M_REVOKED','M_OUT',
+    'M_OFF','M_JUDGE','M_COACH','M_COACH2','M_REVOKED','M_OUT','M_INVITE','M_EXPIRED','M_UNCONF',
     'C_SETUP','C_REG','C_ALLOC','C_QUAL','C_ELIM','C_T2_REG','C_T2_QUAL',
     'D_SETUP','D_REG','D_ALLOC','D_QUAL','D_ELIM','D_T2_REG','D_T2_QUAL',
     'A_REG_OWN','A_REG_OTHER','A_REG_LOCKED','A_DELETED','A_ALLOC',
@@ -83,10 +90,11 @@ begin
     -- T2 is a different, unpublished event whose only official is U_OUT.
     -- The judge is assigned bale 1 in T1. Coach owns most T1 archers.
     execute pg_temp.sub($f$
-      insert into auth.users (id, email) values
-        ({U_OFF}, 'rls-official@test.invalid'), ({U_JUDGE}, 'rls-judge@test.invalid'),
-        ({U_COACH}, 'rls-coach@test.invalid'), ({U_COACH2}, 'rls-coach2@test.invalid'),
-        ({U_REVOKED}, 'rls-revoked@test.invalid'), ({U_OUT}, 'rls-outsider@test.invalid');
+      insert into auth.users (id, email, email_confirmed_at) values
+        ({U_OFF}, 'rls-official@test.invalid', now()), ({U_JUDGE}, 'rls-judge@test.invalid', now()),
+        ({U_COACH}, 'rls-coach@test.invalid', now()), ({U_COACH2}, 'rls-coach2@test.invalid', now()),
+        ({U_REVOKED}, 'rls-revoked@test.invalid', now()), ({U_OUT}, 'rls-outsider@test.invalid', now()),
+        ({U_INVITEE}, 'rls-invitee@test.invalid', now()), ({U_UNCONF}, 'rls-unconfirmed@test.invalid', null);
 
       insert into profiles (id, full_name, phone) values
         ({U_OFF}, 'Test Official', '+91 90000 00001'),
@@ -103,6 +111,12 @@ begin
         ({M_COACH2},  {T1}, {U_COACH2},  'rls-coach2@test.invalid',   'COACH',    'ACTIVE'),
         ({M_REVOKED}, {T1}, {U_REVOKED}, 'rls-revoked@test.invalid',  'COACH',    'REVOKED'),
         ({M_OUT},     {T2}, {U_OUT},     'rls-outsider@test.invalid', 'OFFICIAL', 'ACTIVE');
+
+      -- Pending invites. The T1 invite deliberately differs in letter case.
+      insert into memberships (id, tournament_id, invited_email, role, status, expires_at) values
+        ({M_INVITE},  {T1}, 'RLS-Invitee@Test.invalid',     'JUDGE', 'INVITED', now() + interval '1 day'),
+        ({M_EXPIRED}, {T2}, 'rls-invitee@test.invalid',     'JUDGE', 'INVITED', now() - interval '1 minute'),
+        ({M_UNCONF},  {T1}, 'rls-unconfirmed@test.invalid', 'COACH', 'INVITED', now() + interval '1 day');
 
       insert into categories (id, tournament_id, bow_style, gender, age_class, display_name, round_code, match_format_code) values
         ({C_SETUP},   {T1}, 'RECURVE', 'M', 'SUB_JUNIOR', 'c-setup', 'WA720_70', 'RECURVE_INDIVIDUAL'),
@@ -420,6 +434,38 @@ begin
       report := report || jsonb_build_object('test', c.test, 'expected', c.expected, 'got', g);
     end loop;
 
+    -- INVITES (0003) ------------------------------------------------------
+    for c in select * from (values
+      ('invitee: accept own invite (email letter case differs)', 'U_INVITEE', 'allow',
+       $q$select 1 from accept_membership({M_INVITE})$q$, null),
+      ('invitee: accepting activates the membership for this user', 'U_INVITEE', 'allow',
+       $q$select 1 from accept_membership({M_INVITE})$q$,
+       $q$select 1 from memberships where id = {M_INVITE} and status = 'ACTIVE' and user_id = {U_INVITEE} and accepted_at is not null$q$),
+      ('invitee: accepting writes MEMBERSHIP_ACCEPT to audit_log', 'U_INVITEE', 'allow',
+       $q$select 1 from accept_membership({M_INVITE})$q$,
+       $q$select 1 from audit_log where entity_id = {M_INVITE} and action = 'MEMBERSHIP_ACCEPT' and actor_id = {U_INVITEE}$q$),
+      ('invitee: accept an expired invite', 'U_INVITEE', 'deny',
+       $q$select 1 from accept_membership({M_EXPIRED})$q$, null),
+      ('invitee: accept an invite id that does not exist', 'U_INVITEE', 'deny',
+       $q$select 1 from accept_membership(gen_random_uuid())$q$, null),
+      ('invitee: activate own invite by writing memberships directly', 'U_INVITEE', 'deny',
+       $q$update memberships set status = 'ACTIVE', user_id = {U_INVITEE} where id = {M_INVITE}$q$, null),
+      ('coach: accept an invite sent to someone else', 'U_COACH', 'deny',
+       $q$select 1 from accept_membership({M_INVITE})$q$, null),
+      ('coach: open own accepted invite again (idempotent)', 'U_COACH', 'allow',
+       $q$select 1 from accept_membership({M_COACH})$q$, null),
+      ('revoked member: re-accept a revoked membership', 'U_REVOKED', 'deny',
+       $q$select 1 from accept_membership({M_REVOKED})$q$, null),
+      ('unconfirmed email: accept invite for that email', 'U_UNCONF', 'deny',
+       $q$select 1 from accept_membership({M_UNCONF})$q$, null),
+      ('anon: call accept_membership', null, 'deny',
+       $q$select 1 from accept_membership({M_INVITE})$q$, null)
+    ) v(test, who, expected, sql, verify)
+    loop
+      g := pg_temp.attempt((ids ->> c.who)::uuid, pg_temp.sub(c.sql, ids), pg_temp.sub(c.verify, ids));
+      report := report || jsonb_build_object('test', c.test, 'expected', c.expected, 'got', g);
+    end loop;
+
     -- ANON: every base table, generated so a new table cannot be missed.
     for c in select tablename from pg_tables where schemaname = 'public' order by tablename loop
       g := pg_temp.attempt(null, format('select 1 from public.%I', c.tablename));
@@ -454,6 +500,12 @@ begin
          (select count(*) from information_schema.role_table_grants
           where table_schema = 'public' and table_name like 'public\_%'
             and grantee in ('anon', 'authenticated', 'PUBLIC') and privilege_type <> 'SELECT'))
+    || jsonb_build_object('test', 'catalog: anon cannot execute accept_membership', 'expected', 'deny', 'got',
+         (select count(*) where has_function_privilege('anon', 'public.accept_membership(uuid)', 'execute')))
+    || jsonb_build_object('test', 'catalog: every security definer function pins search_path', 'expected', 'deny', 'got',
+         (select count(*) from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+          where ns.nspname = 'public' and p.prosecdef
+            and not exists (select 1 from unnest(p.proconfig) cfg where cfg like 'search_path=%')))
     || jsonb_build_object('test', 'catalog: public views expose no contact or attribution column', 'expected', 'deny', 'got',
          (select count(*) from information_schema.columns
           where table_schema = 'public' and table_name like 'public\_%'

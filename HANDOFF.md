@@ -1,5 +1,9 @@
 # Session handoff
 
+> **Status 2026-09-15:** tasks 0–3 below and the auth scaffold are done. This file
+> is kept for its background (sections 1–5, 9). For current state and what comes
+> next, `CLAUDE.md` is authoritative.
+
 You are picking up a project mid-stream. Read this file and `CLAUDE.md` before
 writing anything. Nothing in this repo is running yet.
 

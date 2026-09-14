@@ -1,0 +1,15 @@
+<!--
+  Paste this into BOTH Supabase → Authentication → Email Templates →
+  "Magic Link" and "Confirm signup" (first-time sign-ins use the second one).
+
+  Why not the default template: its link uses a PKCE code that only works in
+  the browser that asked for it. Invitees often open email on another device.
+  The token_hash link works anywhere, and /auth/confirm asks for a button
+  press so mail scanners that pre-open links cannot use up the token.
+-->
+<h2>Sign in to Archery TMS</h2>
+<p>
+  <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&next={{ .RedirectTo }}">Sign in</a>
+</p>
+<p>Or type this code on the sign-in page: <strong>{{ .Token }}</strong></p>
+<p>This link and code work once and expire soon. If you did not ask to sign in, ignore this email.</p>

@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "tsc -p tsconfig.test.json && node --test dist/lib/rules/rules.test.js",
+    "test": "tsc -p tsconfig.test.json && node --test dist/lib/rules/rules.test.js dist/lib/safe-next.test.js",
     "db:reset": "supabase db reset"
   },
   "dependencies": {
