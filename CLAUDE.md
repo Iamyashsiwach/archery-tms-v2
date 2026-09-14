@@ -37,6 +37,9 @@ Do not relitigate these without asking Yash.
    Outdoor ranges have no signal. This is not optional.
 9. **Fail closed.** RLS is enabled on every table. A table with no policy denies
    everything. Never add a permissive policy "temporarily".
+10. **Serverless.** Vercel Functions and CDN in front, Supabase (Postgres, Auth,
+    Storage, Realtime) behind. No long-running process, no self-managed server,
+    no in-memory state. See "Serverless rules" below.
 
 ## Roles
 
@@ -127,6 +130,36 @@ Do not skip ahead to UI. Steps 1–2 are what make the system trustworthy.
   into anything under `src/components`.
 - Guidance strings live in one file, `src/content/guidance.ts`, not inline in components
 - Judge UI is thumb-first: 56px minimum touch targets, works at 360px width
+
+## Serverless rules
+
+A function can start cold, run in parallel with itself, time out, or be killed
+mid-request. Design for that.
+
+- **Stateless requests.** No module-level caches of user data, no in-memory queues
+  or timers. State lives in Postgres, Supabase Storage, or the client (IndexedDB).
+- **Postgres over HTTP.** Use supabase-js (PostgREST). If a raw connection is ever
+  needed, use the Supavisor transaction pooler (port 6543), never a pool in a function.
+- **Atomic writes live in Postgres.** Anything that must not half-apply — phase
+  transitions, results recalculation, import commit — is one Postgres function the
+  server action calls, like `accept_membership`. Separate supabase-js calls are
+  separate transactions.
+- **Idempotent writes.** Offline sync and flaky range signal mean retries are
+  normal: client-generated ids, unique constraints, `on conflict do nothing`.
+- **Nothing outlives a request unannounced.** Long work (PDF parsing via the
+  Anthropic API) is a status machine: upload directly to Supabase Storage with a
+  signed URL (function bodies cap at 4.5 MB), set `import_batches.status = 'PARSING'`,
+  do the work in Next's `after()`, and let the page poll the status.
+- **Public pages are cached, not computed per view.** Display and results pages are
+  served from the CDN and refreshed with `revalidateTag` when ends are written. Keep
+  them out of the `src/proxy.ts` matcher so a scoreboard polling every few seconds
+  does not invoke a function each time. Live push, if needed, is Supabase Realtime
+  Broadcast — never a socket server.
+- **Schedules are platform jobs.** Invite expiry and cleanup use `pg_cron` or Vercel
+  Cron, not a process.
+- **Co-locate.** Vercel function region matches the Supabase project region. Use
+  Supabase asymmetric JWT signing keys so `getClaims()` in the proxy verifies
+  locally instead of calling Auth on every request.
 
 ## Open questions for Yash
 
