@@ -143,18 +143,25 @@ Sign in locally with any address; the email (with its code) lands in Mailpit.
 
 ## Production checklist
 
+Supabase project `otzelfycaedgnldvmxps` is a Vercel Marketplace resource
+(`supabase-almond-battery`, free plan, region `iad1`, same as the Vercel functions).
+
+0. **The free plan pauses the project after about a week without activity, and a
+   paused project blocks every Vercel deployment** (`BUILD_FAILED: Resource
+   provisioning failed`, before any build step runs). Restore it in the Supabase
+   dashboard before deploying or running an event; consider Pro for event weeks.
 1. `npx supabase login`, `npx supabase link --project-ref otzelfycaedgnldvmxps`,
    `npx supabase db push` — applies the migrations.
 2. Auth settings: `npx supabase config diff --project-ref otzelfycaedgnldvmxps`,
    review, then `config push` (sets Site URL, redirect URLs and the sign-in email
    template from `config.toml` and its `[remotes.production]` override). Or set the
    same four values in the dashboard.
-3. Vercel env: `SUPABASE_SECRET_KEY` (secret / service-role key) for Production and
-   Preview; `ANTHROPIC_API_KEY` to enable PDF import.
+3. Vercel env: the Supabase integration already provides
+   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and
+   `SUPABASE_SECRET_KEY`. Add `ANTHROPIC_API_KEY` to enable PDF import.
 4. Run `supabase/rls_test.sql` against production: every row must pass.
 5. Before a real event: custom SMTP in Supabase (the built-in sender allows ~2
-   emails an hour), and a Vercel function region matching the Supabase region
-   (`vercel.json` `regions`).
+   emails an hour).
 
 ## Conventions
 
