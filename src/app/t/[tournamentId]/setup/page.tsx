@@ -1,4 +1,5 @@
 import { Notice } from "@/components/Notice";
+import { Guide } from "@/components/Guidance";
 import { ui } from "@/components/ui";
 import { CATEGORY_OPTIONS, guidance, PHASE_LABEL } from "@/content/guidance";
 import type { Phase } from "@/lib/phases";
@@ -71,6 +72,7 @@ export default async function Setup({
   return (
     <>
       <Notice ok={ok} error={error} />
+      <Guide steps={guidance.guide.setup} />
 
       <h2 className={ui.h2}>{g.detailsTitle}</h2>
       <form action={saveDetails.bind(null, tournamentId)} className={ui.card}>

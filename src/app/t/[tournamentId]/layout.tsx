@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { NavTabs } from "@/components/NavTabs";
 import { ui } from "@/components/ui";
 import { guidance, ROLE_LABEL } from "@/content/guidance";
 import { OFFICIALS, requireMembership } from "@/server/auth";
@@ -32,28 +33,30 @@ export default async function TournamentLayout({
 
   return (
     <div className="mx-auto max-w-3xl px-4 pt-4">
-      <Link href="/" className="text-sm underline">
+      <Link href="/" className={`text-sm text-neutral-600 ${ui.link}`}>
         ← {n.home}
       </Link>
-      <h1 className="mt-2 text-2xl font-semibold">{t?.name}</h1>
-      <p className="text-sm text-neutral-600">
-        {ROLE_LABEL[membership.role]} · {t?.start_date}
-        {t?.venue && ` · ${t.venue}`}
-      </p>
-      <nav className="mt-3 flex flex-wrap gap-2 border-b border-neutral-300 pb-3">
-        {links
-          .filter(([, , shown]) => shown)
-          .map(([href, label]) => (
-            <Link key={href} href={`/t/${tournamentId}${href}`} className={ui.small}>
-              {label}
+      <div className="mt-2 flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h1 className={ui.h1}>{t?.name}</h1>
+          <p className="text-sm text-neutral-600">
+            {t?.start_date}
+            {t?.venue && ` · ${t.venue}`}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={ui.badge}>{ROLE_LABEL[membership.role]}</span>
+          {t?.is_published && (
+            <Link href={`/display/${tournamentId}`} className={ui.small}>
+              {n.publicPage} ↗
             </Link>
-          ))}
-        {t?.is_published && (
-          <Link href={`/display/${tournamentId}`} className={ui.small}>
-            {n.publicPage}
-          </Link>
-        )}
-      </nav>
+          )}
+        </div>
+      </div>
+      <NavTabs
+        base={`/t/${tournamentId}`}
+        links={links.filter(([, , shown]) => shown).map(([href, label]) => ({ href, label }))}
+      />
       <main className="pb-10">{children}</main>
     </div>
   );

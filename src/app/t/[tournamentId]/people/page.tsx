@@ -1,4 +1,5 @@
 import { Notice } from "@/components/Notice";
+import { Guide } from "@/components/Guidance";
 import { ui } from "@/components/ui";
 import { guidance, ROLE_LABEL } from "@/content/guidance";
 import { OFFICIALS, requireMembership } from "@/server/auth";
@@ -45,6 +46,7 @@ export default async function People({
   return (
     <>
       <Notice ok={ok} error={error} />
+      <Guide steps={guidance.guide.people} />
 
       <h2 className={ui.h2}>{g.membersTitle}</h2>
       <p className={ui.help}>{g.membersHelp}</p>

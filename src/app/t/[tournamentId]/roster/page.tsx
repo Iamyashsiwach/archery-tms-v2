@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Guide } from "@/components/Guidance";
 import { Notice } from "@/components/Notice";
 import { ui } from "@/components/ui";
 import { guidance, PHASE_LABEL } from "@/content/guidance";
@@ -49,6 +50,7 @@ export default async function Roster({
   return (
     <>
       <Notice ok={ok} error={error} />
+      <Guide steps={guidance.guide.roster} />
       <h2 className={ui.h2}>{g.title}</h2>
       <p className={ui.help}>{g.help}</p>
       {open.length === 0 && <p className={ui.help}>{g.noOpenDivisions}</p>}

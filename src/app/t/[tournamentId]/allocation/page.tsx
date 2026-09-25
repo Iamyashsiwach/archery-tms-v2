@@ -1,4 +1,5 @@
 import { Notice } from "@/components/Notice";
+import { Guide } from "@/components/Guidance";
 import { ui } from "@/components/ui";
 import { guidance } from "@/content/guidance";
 import { ROUND_LABEL, type RoundCode } from "@/lib/rules/brackets";
@@ -60,6 +61,7 @@ export default async function Allocation({
   return (
     <>
       <Notice ok={ok} error={error} />
+      <Guide steps={guidance.guide.allocation} />
       <h2 className={ui.h2}>{g.title}</h2>
       <p className={ui.help}>{g.help}</p>
       {allocating.length === 0 && <p className={ui.help}>{g.none}</p>}

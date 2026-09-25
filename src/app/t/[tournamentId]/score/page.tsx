@@ -1,4 +1,5 @@
 import { Notice } from "@/components/Notice";
+import { Guide } from "@/components/Guidance";
 import { ui } from "@/components/ui";
 import { guidance } from "@/content/guidance";
 import { ROUND_LABEL, type RoundCode } from "@/lib/rules/brackets";
@@ -142,6 +143,7 @@ export default async function Score({
       <h2 className={ui.h2}>{g.title}</h2>
       <p className={ui.help}>{g.help}</p>
       <Notice ok={ok} error={error} />
+      <Guide steps={guidance.guide.score} />
       {scoreArchers.length === 0 && scoreMatches.length === 0 ? (
         <p className="mt-4">{g.nothingToScore}</p>
       ) : (

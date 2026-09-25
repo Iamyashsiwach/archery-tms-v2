@@ -1,4 +1,5 @@
 import { Notice } from "@/components/Notice";
+import { Guide } from "@/components/Guidance";
 import { Bracket, StandingsTable, type MatchView, type StandingView } from "@/components/Standings";
 import { ui } from "@/components/ui";
 import { guidance, PHASE_LABEL } from "@/content/guidance";
@@ -67,6 +68,7 @@ export default async function Results({
   return (
     <>
       <Notice ok={ok} error={error} />
+      <Guide steps={guidance.guide.results} />
       <h2 className={ui.h2}>{g.title}</h2>
       {rows.length === 0 && <p className={ui.help}>{g.none}</p>}
 

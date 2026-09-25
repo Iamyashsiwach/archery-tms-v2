@@ -93,6 +93,8 @@ export const guidance = {
     invalidEmail: "Enter a full email address, like name@example.com.",
     sendFailed: "The email could not be sent. Wait a minute, then try again.",
     codeRejected: "That code is wrong or has expired. Check the newest email, or start again for a new code.",
+    localInbox: "This copy is running on your computer, so emails are not delivered to real mailboxes. They land in the local test inbox.",
+    openInbox: "Open the local inbox",
   },
 
   confirm: {
@@ -134,7 +136,20 @@ export const guidance = {
   },
 
   home: {
+    heroTitle: "Run your archery tournament, start to medals",
     intro: "Run a target archery tournament end to end: registration, targets, scoring, the cut, brackets and medals.",
+    howTitle: "How it works",
+    how: [
+      { title: "Officials set up", body: "Create the event, add its categories and invite coaches and judges by email." },
+      { title: "Coaches enter archers", body: "Each club adds and submits its own roster, by hand or from a CSV, Excel or PDF list." },
+      { title: "Judges score, everyone follows", body: "Judges score on their phones, even with no signal. Standings, brackets and medals update live." },
+    ],
+    startTitle: "Getting started",
+    start: [
+      "Add your name below so officials know who you are.",
+      "Invited to an event? Open the link in your invite email; the tournament then appears here.",
+      "Organising one? Start a tournament below. You become its administrator.",
+    ],
     signIn: "Sign in",
     publicEvents: "Live and recent events",
     noPublicEvents: "No events are published yet.",
@@ -144,7 +159,6 @@ export const guidance = {
     phoneLabel: "Phone (optional)",
     saveProfile: "Save",
     yourTournaments: "Your tournaments",
-    none: "You are not part of any tournament yet. Open the invite link an official sent you, or start your own below.",
     createTitle: "Start a tournament",
     createHelp: "You become its administrator. Nobody else can see it until you invite them or publish it.",
     tournamentName: "Tournament name",
@@ -165,6 +179,78 @@ export const guidance = {
     reopenTo: (phase: string) => `Reopen ${phase}`,
     reopenReason: "Reason (at least 10 characters, kept in the audit log)",
     whatNext: "What to do now",
+    progress: "Phase progress",
+  },
+
+  checklist: {
+    progress: (done: number, total: number) => `${done} of ${total} done`,
+    doneMark: "(done)",
+    nextMark: "(next step)",
+    official: {
+      title: "Getting your event ready",
+      categories: { label: "Add the categories this event runs", detail: "Each category is one competition, for example Recurve · Men · Senior.", cta: "Open Setup" },
+      coaches: { label: "Invite the coaches", detail: "Coaches register their own club's archers.", cta: "Open People" },
+      judges: { label: "Invite the judges", detail: "Judges score on their phones, even without signal.", cta: "Open People" },
+      registration: { label: "Open registration", detail: "Move each division to Registration in the division cards below.", cta: "Go to divisions" },
+      closeRegistration: { label: "Close registration", detail: "When coaches have submitted their rosters, move each division to Target allocation.", cta: "Go to divisions" },
+      allocate: { label: "Give every archer a target", detail: "Auto-assign fills targets four archers at a time.", cta: "Open Allocation" },
+      judgeTargets: { label: "Assign a judge to every target in use", detail: "A judge can only score the targets you give them.", cta: "Open People" },
+      qualification: { label: "Start qualification", detail: "Move each division to Qualification in the division cards below.", cta: "Go to divisions" },
+      allDone: "Your event is set up and running. Each division below says what to do next.",
+    },
+    coach: {
+      title: "Your roster",
+      notOpen: "Registration has not opened yet. You will add your archers in Roster once an official opens it.",
+      add: { label: "Add your archers", detail: "One at a time, or import a CSV, Excel or PDF list.", cta: "Open Roster" },
+      submit: { label: "Check names, then submit each division", detail: "After you submit, only an official can change an entry.", cta: "Open Roster" },
+      allDone: "Your archers are submitted. Their targets will appear in Roster; follow the scores in Results.",
+    },
+    judge: {
+      title: "Your targets",
+      targets: (bales: number[]) =>
+        bales.length ? `You score targets ${bales.join(", ")}.` : "No targets are assigned to you yet. An official does this in People.",
+      tip: "Open Scoring once while you have signal, so it keeps working at the range with none.",
+      cta: "Open Scoring",
+    },
+  },
+
+  /** "How this page works" — numbered steps at the top of each working page. */
+  guide: {
+    title: "How this page works",
+    setup: [
+      "Check the name, dates and venue, and add the rules reference so everyone knows which AAI circular or WA rulebook applies.",
+      "Add one category for each competition (for example Recurve · Men · Senior) with its qualification round and elimination format.",
+      "Tick “Show results on the public page” when spectators should be able to follow along.",
+      "Next, invite coaches and judges in People.",
+    ],
+    people: [
+      "Invite each coach (with their club), judge and fellow official by email.",
+      "The email has a sign-in link and a code. If it does not arrive, copy the invite link and send it on WhatsApp; it only works for that email address.",
+      "Give every judge the targets they will score. One judge can cover a range, such as targets 1 to 4.",
+    ],
+    roster: [
+      "Add each archer to the division they compete in, one at a time or by importing a CSV, Excel or PDF list.",
+      "Imports wait for your review: fix anything flagged, then add the rows you keep.",
+      "Check names and clubs, then press “Submit this division”. After that only an official can change it.",
+      "Target assignments appear here once officials allocate them.",
+    ],
+    allocation: [
+      "Press “Auto-assign archers without a target” to fill targets four at a time, or set a target and position for each archer.",
+      "Every target in use needs a judge: assign them in People.",
+      "Then go back to Overview and move the division to Qualification.",
+      "During eliminations, set a target for each match here.",
+    ],
+    score: [
+      "Open this page once while you have signal. After that it works at the range with no signal.",
+      "Choose the archer or match, tap each arrow's value in any order, then press “Save end”.",
+      "Watch the status bar: saved ends wait on this phone and send by themselves when signal returns.",
+      "If an end shows “Not accepted”, check the scoresheet with an official before discarding it.",
+    ],
+    results: [
+      "Standings update a few seconds after judges send each end.",
+      "Archers level on total, 10s and Xs are marked as a tie. In the Cut, officials record the shoot-off order here.",
+      "Once eliminations start, the bracket and then the medals appear below.",
+    ],
   },
 
   setup: {
