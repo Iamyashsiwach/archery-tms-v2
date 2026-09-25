@@ -161,7 +161,8 @@ Only the Vercel project's Git deploys are retired.
      The always-free allowances continue on the Paid plan.
 2. **Database.** Run `npx supabase login`, then
    `npx supabase link --project-ref otzelfycaedgnldvmxps`, then `npx supabase db push`.
-   Then run `supabase/rls_test.sql` against it: every row must pass.
+   Then run `npx supabase db query --linked -f supabase/rls_test.sql --output-format json`:
+   every row must pass. It needs no database password, and nothing it creates persists.
 3. **Secrets.** From Supabase → Project Settings → API, run
    `npx sst secret set <Name> <value> --stage production` for each of
    `SupabaseUrl`, `SupabasePublishableKey` and `SupabaseSecretKey`.
