@@ -11,6 +11,7 @@
     "test": "tsc -p tsconfig.test.json && node --test dist/lib/rules/rules.test.js dist/lib/*.test.js",
     "db:reset": "supabase db reset",
     "e2e": "playwright test",
+    "deploy": "sst deploy --stage production",
     "db:types": "supabase gen types typescript --local --schema public > src/lib/database.types.ts"
   },
   "dependencies": {
@@ -31,6 +32,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
+    "sst": "^4.17.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   },

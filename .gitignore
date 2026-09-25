@@ -13,6 +13,11 @@ supabase/.temp/
 test-results/
 playwright-report/
 
+# SST / OpenNext
+.sst/
+.open-next/
+sst-env.d.ts
+
 # Markdown stays local: only README.md is published
 *.md
 !/README.md
