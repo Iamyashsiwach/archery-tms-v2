@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { safeNext } from "./safe-next.js";
+import { safeNext } from "./safe-next";
 
 const SITE = "https://tms.example.org";
 

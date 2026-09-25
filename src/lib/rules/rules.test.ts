@@ -1,10 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { getMatchSpec, getRound, roundArrowCount, roundMaxScore } from "./catalogue.js";
-import { scoreEnd, totalEnds, rankDivision, applyRankingShootOff, compareForRanking } from "./scoring.js";
-import { evaluateMatch } from "./matches.js";
-import { advance, bracketSizeFor, generateBracket, medals, seedOrder } from "./brackets.js";
+import { getMatchSpec, getRound, roundArrowCount, roundMaxScore } from "./catalogue";
+import { scoreEnd, totalEnds, rankDivision, applyRankingShootOff, compareForRanking } from "./scoring";
+import { evaluateMatch } from "./matches";
+import { advance, bracketSizeFor, generateBracket, medals, seedOrder } from "./brackets";
 
 const RING = { maxRingValue: 10 };
 const END6 = { arrowsPerEnd: 6, maxRingValue: 10 };

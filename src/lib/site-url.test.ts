@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { resolveSiteUrl } from "./site-url.js";
+import { resolveSiteUrl } from "./site-url";
 
 test("an explicit SITE_URL always wins", () => {
   assert.equal(

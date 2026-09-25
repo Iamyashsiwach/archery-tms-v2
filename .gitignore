@@ -8,3 +8,11 @@ next-env.d.ts
 .env*.local
 .DS_Store
 supabase/.temp/
+
+# Playwright
+test-results/
+playwright-report/
+
+# Markdown stays local: only README.md is published
+*.md
+!/README.md

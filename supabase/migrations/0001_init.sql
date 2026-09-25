@@ -7,7 +7,9 @@
 --   2. Bow styles, genders and age classes are seeded rows, not CHECK enums.
 --      An AAI rulebook revision is a data change, not a migration.
 
-create extension if not exists "pgcrypto";
+-- Hosted migrations run without `extensions` on the search_path, so extension
+-- types are schema-qualified.
+create extension if not exists "pgcrypto" with schema extensions;
 create extension if not exists "citext" with schema extensions;
 
 -- ---------------------------------------------------------------- identity
@@ -38,7 +40,7 @@ create table memberships (
   id uuid primary key default gen_random_uuid(),
   tournament_id uuid not null references tournaments(id) on delete cascade,
   user_id uuid references auth.users(id) on delete cascade,
-  invited_email citext not null,
+  invited_email extensions.citext not null,
   role text not null check (role in ('ADMIN','OFFICIAL','JUDGE','COACH')),
   club text,
   status text not null default 'INVITED'
