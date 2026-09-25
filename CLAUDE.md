@@ -37,9 +37,10 @@ Do not relitigate these without asking Yash.
    Outdoor ranges have no signal. This is not optional.
 9. **Fail closed.** RLS is enabled on every table. A table with no policy denies
    everything. Never add a permissive policy "temporarily".
-10. **Serverless.** Vercel Functions and CDN in front, Supabase (Postgres, Auth,
-    Storage, Realtime) behind. No long-running process, no self-managed server,
-    no in-memory state. See "Serverless rules" below.
+10. **Serverless.** AWS Lambda and CloudFront in front (Next.js through
+    SST/OpenNext, `sst.config.ts`), Supabase (Postgres, Auth, Storage, Realtime)
+    behind. No long-running process, no self-managed server, no in-memory state.
+    See "Serverless rules" below.
 
 ## Roles
 
@@ -143,25 +144,41 @@ Sign in locally with any address; the email (with its code) lands in Mailpit.
 
 ## Production checklist
 
-Supabase project `otzelfycaedgnldvmxps` is a Vercel Marketplace resource
-(`supabase-almond-battery`, free plan, region `iad1`, same as the Vercel functions).
+Hosting is AWS `us-east-1`, all inside the always-free allowances:
+- CloudFront → Lambda (Next.js through OpenNext), with S3, DynamoDB and SQS for the ISR cache.
+- A daily `KeepAlive` cron (`infra/keepalive.ts`), because the free Supabase plan
+  pauses a project after a week without activity.
 
-0. **The free plan pauses the project after about a week without activity, and a
-   paused project blocks every Vercel deployment** (`BUILD_FAILED: Resource
-   provisioning failed`, before any build step runs). Restore it in the Supabase
-   dashboard before deploying or running an event; consider Pro for event weeks.
-1. `npx supabase login`, `npx supabase link --project-ref otzelfycaedgnldvmxps`,
-   `npx supabase db push` — applies the migrations.
-2. Auth settings: `npx supabase config diff --project-ref otzelfycaedgnldvmxps`,
-   review, then `config push` (sets Site URL, redirect URLs and the sign-in email
-   template from `config.toml` and its `[remotes.production]` override). Or set the
-   same four values in the dashboard.
-3. Vercel env: the Supabase integration already provides
-   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and
-   `SUPABASE_SECRET_KEY`. Add `ANTHROPIC_API_KEY` to enable PDF import.
-4. Run `supabase/rls_test.sql` against production: every row must pass.
-5. Before a real event: custom SMTP in Supabase (the built-in sender allows ~2
-   emails an hour).
+The database is the free Supabase project `otzelfycaedgnldvmxps`, region `iad1`.
+It was created as a Vercel Marketplace resource (`supabase-almond-battery`), so
+**keep that integration installed in Vercel: uninstalling it deletes the database.**
+Only the Vercel project's Git deploys are retired.
+
+1. **AWS account and credentials.**
+   - Create the account on the Free plan, then run `aws configure` or `aws sso login` on the deploying machine.
+   - Create a $1 monthly budget with an email alert.
+   - The Free plan ends 6 months after sign-up: upgrade to the Paid plan before then.
+     The always-free allowances continue on the Paid plan.
+2. **Database.** Run `npx supabase login`, then
+   `npx supabase link --project-ref otzelfycaedgnldvmxps`, then `npx supabase db push`.
+   Then run `supabase/rls_test.sql` against it: every row must pass.
+3. **Secrets.** From Supabase → Project Settings → API, run
+   `npx sst secret set <Name> <value> --stage production` for each of
+   `SupabaseUrl`, `SupabasePublishableKey` and `SupabaseSecretKey`.
+   Also set `SiteUrl`, using a placeholder until step 4.
+4. **Deploy.** `npm run deploy` prints the CloudFront URL.
+   - Set `SiteUrl` to that URL and deploy again.
+   - Put the URL in `[remotes.production.auth]` in `supabase/config.toml`.
+   - Run `npx supabase config diff --project-ref otzelfycaedgnldvmxps`, review it, then `config push`.
+     This sets the Site URL, the redirect URLs and the sign-in email template.
+5. **Email.** In Supabase → Authentication → SMTP, set a sender: for example,
+   Gmail SMTP from a dedicated account with an app password (500 emails a day).
+   The built-in sender only reaches the project's own team.
+6. **PDF import (optional).** Add an `AnthropicApiKey` secret, map it to
+   `ANTHROPIC_API_KEY` in `sst.config.ts`, and deploy.
+7. **Around each event.** Free Supabase keeps no backups. Run
+   `npx supabase db dump -f backup-<date>.sql` before the event and after each
+   day of it, and keep the files off-site.
 
 ## Conventions
 
@@ -194,16 +211,19 @@ mid-request. Design for that.
 - **Nothing outlives a request unannounced.** Long work is a status machine:
   a PDF import sets `status = 'PARSING'`, Claude reads it in `after()`, and the
   review page refreshes until it is `REVIEW` or `FAILED`. Uploads go through the
-  server action up to 4 MB (Vercel caps bodies at 4.5 MB); move to Supabase
-  Storage signed uploads if larger files are ever needed.
+  server action up to 4 MB (Lambda caps payloads at 6 MB, and files arrive
+  base64-encoded); move to Supabase Storage signed uploads if larger files are
+  ever needed. CloudFront cuts any response at 60 s; the Lambda itself may run
+  300 s, so long work belongs in `after()`.
 - **Public pages are cached, not computed per view.** `/display` is ISR (30 s) and
   refreshed with `revalidatePath` when ends are written; it is outside the proxy
-  matcher. Live push, if needed, is Supabase Realtime Broadcast — never a socket server.
-- **Schedules are platform jobs.** Invite expiry and cleanup use `pg_cron` or Vercel
-  Cron, not a process.
-- **Co-locate.** Vercel function region matches the Supabase project region. Use
-  Supabase asymmetric JWT signing keys so `getClaims()` in the proxy verifies
-  locally instead of calling Auth on every request.
+  matcher. CloudFront may serve its own copy for up to 30 s after that. Live push,
+  if needed, is Supabase Realtime Broadcast — never a socket server.
+- **Schedules are platform jobs.** They run as an SST `CronV2` (EventBridge → Lambda)
+  or `pg_cron`, not a process.
+- **Co-locate.** The Lambda region (`sst.config.ts`) matches the Supabase project
+  region. Use Supabase asymmetric JWT signing keys so `getClaims()` in the proxy
+  verifies locally instead of calling Auth on every request.
 
 ## Decisions taken without Yash (defaults — overturn freely)
 
