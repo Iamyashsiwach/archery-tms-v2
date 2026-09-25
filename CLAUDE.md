@@ -72,64 +72,103 @@ and always writes `audit_log` with action `PHASE_REOPEN`.
 
 ## What is already built
 
-### `src/lib/rules/` — complete, 34 passing tests
+Build-order steps 1–8 are done. An event can run end to end: setup, invites,
+registration and imports, allocation, offline scoring, the cut, brackets, medals.
+`e2e/event.spec.ts` proves it on a production build.
 
-Pure functions, no I/O, no Supabase imports. Keep it that way.
+### `src/lib/` — pure, no I/O
 
-- `types.ts` — `Arrow` (`"X" | "M" | number`), `End`, `RoundSpec`, `MatchSpec`, `MatchState`
-- `catalogue.ts` — round definitions (WA 720 at each distance, WA 1440 M/W, indoor 18m/25m, Indian Round) and the six match formats (recurve/compound × individual/team/mixed team)
-- `scoring.ts` — arrow values, end validation (arrow count, legal zones, descending order), totals, `rankDivision` with the WA tiebreak (total → tens → inner tens), `applyRankingShootOff`
-- `matches.ts` — `evaluateMatch` covering set system and cumulative, with shoot-off resolution including the judge's closest-to-centre call
-- `brackets.ts` — `generateBracket` for fields of 4 to 64 with standard WA seeding and byes, `advance`, `medals`
-- `rules.test.ts` — run with `node --test` after `tsc`
+- `rules/` — the rules engine. **Single source of truth for scoring, ranking and
+  brackets**; nothing else re-implements it. `types`, `catalogue` (rounds, match
+  formats), `scoring` (arrow values, end validation, WA tiebreak, ranking
+  shoot-offs), `matches` (set system, cumulative, shoot-offs incl. closest to
+  centre), `brackets` (WA seeding, byes, `advance`, `medals`).
+- `derive.ts` — reshapes database rows for the engine and back: standings from
+  arrows, bracket payload, match state and advancement, placings, allocation.
+- `roster-import.ts` — CSV parsing, header/value recognition, division matching.
+- `phases.ts`, `safe-next.ts`, `site-url.ts`, `database.types.ts` (generated: `npm run db:types`).
 
 Inner ten (`"X"`) scores 10 and counts as both a ten and an X. Tens include both
 outer and inner. Getting this wrong breaks every tiebreak.
 
 ### `supabase/migrations/`
 
-- `0001_init.sql` — full schema: `profiles`, `tournaments`, `memberships`, `categories`,
-  `divisions`, `archers`, `teams`, `team_members`, `judge_assignments`, `ends`, `matches`,
-  `results`, `import_batches`, `import_rows`, `audit_log`, plus the RLS helpers
-  `current_role_in`, `division_phase`, `judge_owns_bale`.
-- `0002_policies.sql` — RLS for role × phase × table. Every write policy also pins
-  referenced rows to the same tournament. A trigger limits officials to
-  `bale_number`/`slot_index` on archers. anon reads only the `public_*` views.
-- `0003_accept_membership.sql` — `accept_membership(id)`, the only way a membership
-  becomes ACTIVE: checks the caller's confirmed email, expiry and status, writes audit_log.
+- `0001_init.sql` — schema and the RLS helpers `current_role_in`, `division_phase`, `judge_owns_bale`.
+- `0002_policies.sql` — RLS for role × phase × table; same-tournament pins; anon reads `public_*` views only.
+- `0003_accept_membership.sql` — `accept_membership(id)`.
+- `0004_workflow.sql` — ends totals derived from arrows by trigger; match targets
+  and shoot-offs; an audit trigger on every core table; `create_tournament`,
+  `invite_member`, `revoke_member`, `commit_import`, `record_closest_to_centre`
+  (security definer, role checked inside); coach-owned import staging;
+  `write_results`, `apply_match`, `transition_division` (**service role only**:
+  they persist what the rules engine computed, so no user may call them).
 
-`supabase/rls_test.sql` proves all of it: paste into the SQL editor, every row must
-pass. Add checks there whenever a policy or security-definer function changes.
+`supabase/rls_test.sql` (202 checks) proves the database layer. Run it after any
+migration: `psql "$DB_URL" -f supabase/rls_test.sql` locally, or paste into the
+SQL editor. Every row must pass; add checks with every policy or function change.
 
-### Auth scaffold
+### `src/server/` — server-only
 
-- `src/proxy.ts` refreshes the Supabase session (Next 16 renamed middleware to proxy)
-- `src/server/supabase.ts` (user-session client, no service role), `src/server/auth.ts` (`requireUser`)
-- `/login` emails a link and a code; `/auth/confirm` verifies on a button press so
-  mail scanners cannot burn the token; `/accept/[membershipId]` calls `accept_membership`
-- Supabase setup: paste `supabase/templates/sign_in.html` into the Magic Link and
-  Confirm signup templates, add `SITE_URL/**` to redirect URLs, copy `.env.local.example`
+- `supabase.ts` — user-session client (RLS applies), anon client (public pages, invite emails).
+- `auth.ts` — `requireUser`, `requireMembership`, `assertPhase`, `assertBaleAssigned`,
+  and `run()`, which turns `ActionError` refusals into `?error=` on the page.
+- `derived.ts` — the only user of `admin.ts` (service role): recalculates standings
+  and matches, records ranking shoot-offs, and runs phase transitions.
+- `pdf-roster.ts` — reads a PDF entry form with `claude-opus-5` (structured output,
+  server-side refusal fallback). Needs `ANTHROPIC_API_KEY`; refused politely without it.
 
-## What is next, in order
+### Pages (`src/app/`)
 
-1. `src/server/` — `requireMembership`, `assertPhase`, `assertBaleAssigned`
-2. Phase transition actions with preconditions and audit writes
-3. People page — invite by email, assign judges to bales
-4. Entry pipeline — manual, then CSV/XLSX, then PDF via the Anthropic API
-5. Role-aware UI with built-in guidance
-6. Offline score queue
+`/` (your tournaments, profile, create) · `/login`, `/auth/confirm`, `/accept/[id]` ·
+`/t/[id]` overview with per-role phase guidance and officials' phase controls ·
+`setup` · `people` · `roster` + `imports/[batchId]` · `allocation` · `score`
+(judges; offline) · `results` (ranking shoot-offs in CUT) · `/display/[id]`
+(public, CDN-cached). Judges sync through `POST /api/ends`.
 
-Do not skip ahead to UI. Steps 1–2 are what make the system trustworthy.
+## Working on it
+
+Needs Node ≥ 22 (`nvm use` reads `.nvmrc`) and Docker.
+
+```bash
+npx supabase start          # local Postgres, Auth, API and a Mailpit inbox (http://127.0.0.1:54324)
+cp .env.local.example .env.local   # fill from `npx supabase status -o env`
+npm run dev
+npm test                    # unit tests (rules engine, derive, imports, redirects)
+npm run e2e                 # full-event dry run on a production build
+npx supabase db reset       # reapply migrations to a clean local database
+npm run db:types            # regenerate src/lib/database.types.ts after a migration
+```
+
+Sign in locally with any address; the email (with its code) lands in Mailpit.
+
+## Production checklist
+
+1. `npx supabase login`, `npx supabase link --project-ref otzelfycaedgnldvmxps`,
+   `npx supabase db push` — applies the migrations.
+2. Auth settings: `npx supabase config diff --project-ref otzelfycaedgnldvmxps`,
+   review, then `config push` (sets Site URL, redirect URLs and the sign-in email
+   template from `config.toml` and its `[remotes.production]` override). Or set the
+   same four values in the dashboard.
+3. Vercel env: `SUPABASE_SECRET_KEY` (secret / service-role key) for Production and
+   Preview; `ANTHROPIC_API_KEY` to enable PDF import.
+4. Run `supabase/rls_test.sql` against production: every row must pass.
+5. Before a real event: custom SMTP in Supabase (the built-in sender allows ~2
+   emails an hour), and a Vercel function region matching the Supabase region
+   (`vercel.json` `regions`).
 
 ## Conventions
 
 - Next.js App Router, React 19, TypeScript strict, Tailwind 4, Supabase
-- Every server action: `requireMembership` → `assertPhase` → zod parse → mutate → audit
-- Use the user's session via `@supabase/ssr` so RLS applies as a second lock.
-  Service role is only for recalculation and phase transitions, and never imported
-  into anything under `src/components`.
+- Every server action: `requireMembership` → `assertPhase` → zod parse → mutate.
+  Judges' ends arrive through `POST /api/ends` instead — a route, so a scoring page
+  cached before a deploy still has a valid URL — with the same checks and RLS.
+  Audit is written by the database (trigger or function), so no action can skip it.
+- Use the user's session so RLS applies as a second lock. The service role is
+  used only in `src/server/derived.ts`, for derived data and phase transitions,
+  and never imported under `src/app` or `src/components`.
 - Guidance strings live in one file, `src/content/guidance.ts`, not inline in components
 - Judge UI is thumb-first: 56px minimum touch targets, works at 360px width
+- Relative imports under `src/lib` have no `.js` suffix: Turbopack cannot resolve it.
 
 ## Serverless rules
 
@@ -137,45 +176,54 @@ A function can start cold, run in parallel with itself, time out, or be killed
 mid-request. Design for that.
 
 - **Stateless requests.** No module-level caches of user data, no in-memory queues
-  or timers. State lives in Postgres, Supabase Storage, or the client (IndexedDB).
+  or timers. State lives in Postgres or the client (IndexedDB).
 - **Postgres over HTTP.** Use supabase-js (PostgREST). If a raw connection is ever
   needed, use the Supavisor transaction pooler (port 6543), never a pool in a function.
 - **Atomic writes live in Postgres.** Anything that must not half-apply — phase
-  transitions, results recalculation, import commit — is one Postgres function the
-  server action calls, like `accept_membership`. Separate supabase-js calls are
-  separate transactions.
-- **Idempotent writes.** Offline sync and flaky range signal mean retries are
-  normal: client-generated ids, unique constraints, `on conflict do nothing`.
-- **Nothing outlives a request unannounced.** Long work (PDF parsing via the
-  Anthropic API) is a status machine: upload directly to Supabase Storage with a
-  signed URL (function bodies cap at 4.5 MB), set `import_batches.status = 'PARSING'`,
-  do the work in Next's `after()`, and let the page poll the status.
-- **Public pages are cached, not computed per view.** Display and results pages are
-  served from the CDN and refreshed with `revalidateTag` when ends are written. Keep
-  them out of the `src/proxy.ts` matcher so a scoreboard polling every few seconds
-  does not invoke a function each time. Live push, if needed, is Supabase Realtime
-  Broadcast — never a socket server.
+  transitions, results, match advancement, import commit — is one Postgres function.
+  Separate supabase-js calls are separate transactions.
+- **Idempotent writes.** Retries are normal: client-generated end ids, unique
+  constraints; `/api/ends` treats a repeat of a stored id as saved.
+- **Nothing outlives a request unannounced.** Long work is a status machine:
+  a PDF import sets `status = 'PARSING'`, Claude reads it in `after()`, and the
+  review page refreshes until it is `REVIEW` or `FAILED`. Uploads go through the
+  server action up to 4 MB (Vercel caps bodies at 4.5 MB); move to Supabase
+  Storage signed uploads if larger files are ever needed.
+- **Public pages are cached, not computed per view.** `/display` is ISR (30 s) and
+  refreshed with `revalidatePath` when ends are written; it is outside the proxy
+  matcher. Live push, if needed, is Supabase Realtime Broadcast — never a socket server.
 - **Schedules are platform jobs.** Invite expiry and cleanup use `pg_cron` or Vercel
   Cron, not a process.
 - **Co-locate.** Vercel function region matches the Supabase project region. Use
   Supabase asymmetric JWT signing keys so `getClaims()` in the proxy verifies
   locally instead of calling Auth on every request.
 
+## Decisions taken without Yash (defaults — overturn freely)
+
+Built while he was away, each chosen to fail closed. Each is small to change.
+
+1. **Elimination targets** — `matches.bale_number`, set by officials in Allocation;
+   until set, a match is judged on the first archer's qualification target.
+2. **Shoot-offs** — a match shoot-off is entered by that match's judge as
+   `SHOOT_OFF` ends, with a closest-to-centre call when level. A ranking shoot-off
+   is recorded by an official in CUT as the finishing order of the tied archers.
+3. **Ties before the bracket** — any tie at a rank inside the bracket blocks
+   eliminations until a shoot-off is recorded (WA may allow lots for seeding-only ties).
+4. **Bale moves during qualification** — not allowed directly; reopen to Allocation
+   (reason required, audited), move, and advance again.
+5. **Final ranks** — only the medallists and fourth get `final_rank`; others keep
+   their qualification rank.
+6. **Who creates tournaments** — any signed-in user, who becomes its ADMIN.
+7. **Who imports** — coaches only, into their own roster (matches the role table).
+8. **Reopening eliminations** — allowed only before any match end is recorded.
+9. **Targets** — auto-allocation puts four archers on a target.
+
 ## Open questions for Yash
 
-These are guesses in the code right now. Ask before relying on them.
-
-1. **Indian Round spec** — currently templated as 50m and 30m, 36 arrows each,
-   122cm face. Needs the real figures from the AAI circular.
-2. **Age classes** — currently sub-junior, cadet, junior, senior, master. Confirm
-   the set and the cutoff ages for AAI-affiliated events.
-3. **Elimination targets** — `matches` has no bale column, so elimination ends are
-   authorised against the archer's qualification bale. Are targets reassigned?
-4. **Shoot-offs** — judges cannot insert `SHOOT_OFF` ends yet. Who records ranking
-   vs match shoot-offs, and in which phase?
-5. **Bale moves** — officials can set bale/slot only in `ALLOCATION`. Is moving an
-   archer during `QUALIFICATION` legal (equipment failure)?
-6. **Team ends** — denied until it is defined which bale a team shoots on.
+1. **Indian Round spec** — templated as 50 m and 30 m, 36 arrows each, 122 cm face.
+2. **Age classes** — sub-junior, cadet, junior, senior, master: confirm set and cut-offs.
+3. **Team and mixed-team events** — not built: how are team targets and judges assigned?
+4. **The nine defaults above** — confirm or correct, especially 2, 3 and 4.
 
 Yash is a competitive archer and an NSNIS Patiala certified coach. On rules
 questions he is the authority — ask him rather than inferring from the web.

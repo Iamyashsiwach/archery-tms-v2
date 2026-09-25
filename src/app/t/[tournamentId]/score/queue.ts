@@ -18,12 +18,16 @@ function open(): Promise<IDBDatabase> {
   });
 }
 
+// Resolves when the transaction has committed, not when the request succeeds:
+// a reload or a killed tab straight after "Save end" must not lose the end.
+// Strict durability asks the browser to flush writes to disk before that.
 async function tx<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
   const db = await open();
   return new Promise((resolve, reject) => {
-    const req = run(db.transaction(STORE, mode).objectStore(STORE));
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    const t = db.transaction(STORE, mode, { durability: mode === "readwrite" ? "strict" : "default" });
+    const req = run(t.objectStore(STORE));
+    t.oncomplete = () => resolve(req.result);
+    t.onerror = t.onabort = () => reject(t.error ?? req.error);
   });
 }
 

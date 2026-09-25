@@ -69,9 +69,9 @@ export default async function Roster({
                   <li key={a.id} className="border-b border-neutral-200 py-3">
                     <form action={saveArcher.bind(null, tournamentId)} className="grid gap-2 sm:grid-cols-3">
                       <input type="hidden" name="archer_id" value={a.id} />
-                      <input name="full_name" aria-label={g.name} defaultValue={a.full_name} required minLength={2} className={ui.input} />
-                      <input name="club" aria-label={g.club} defaultValue={a.club ?? ""} placeholder={g.club} className={ui.input} />
-                      <input name="state" aria-label={g.state} defaultValue={a.state ?? ""} placeholder={g.state} className={ui.input} />
+                      <input name="full_name" aria-label={`${g.name}: ${a.full_name}`} defaultValue={a.full_name} required minLength={2} className={ui.input} />
+                      <input name="club" aria-label={`${g.club}: ${a.full_name}`} defaultValue={a.club ?? ""} placeholder={g.club} className={ui.input} />
+                      <input name="state" aria-label={`${g.state}: ${a.full_name}`} defaultValue={a.state ?? ""} placeholder={g.state} className={ui.input} />
                       <button className={ui.small}>{g.save}</button>
                     </form>
                     <form action={withdrawArcher.bind(null, tournamentId)} className="mt-2">

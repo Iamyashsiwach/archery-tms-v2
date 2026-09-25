@@ -18,6 +18,22 @@ const key = (e: Pick<RecordedEnd, "archer_id" | "stage" | "match_id" | "distance
   `${e.archer_id}|${e.stage}|${e.match_id ?? ""}|${e.distance_index}|${e.end_number}`;
 const SLOT = "ABCDEF";
 const RING = { maxRingValue: 10 };
+const OFFLINE_CACHE = "archery-tms-v1"; // must match CACHE in public/sw.js
+
+/**
+ * The service worker only sees requests made after it takes control, which is
+ * after this page and its scripts have already loaded. Store them now, so a
+ * judge who opens scoring once with signal can reload it with none.
+ */
+async function keepForOffline() {
+  await navigator.serviceWorker.ready;
+  const assets = performance
+    .getEntriesByType("resource")
+    .map((e) => e.name)
+    .filter((url) => new URL(url).pathname.startsWith("/_next/static/"));
+  const cache = await caches.open(OFFLINE_CACHE);
+  await cache.addAll([window.location.pathname, ...assets]);
+}
 
 type Entry = {
   archerId: string;
@@ -126,7 +142,12 @@ export function Scorer({ data }: { data: ScoreData }) {
   );
 
   useEffect(() => {
-    if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker
+        .register("/sw.js")
+        .then(keepForOffline)
+        .catch(() => {});
+    }
     const up = () => void sync();
     window.addEventListener("online", up);
     // Send whatever a previous visit left queued, then keep trying while the page is open.
@@ -172,7 +193,7 @@ export function Scorer({ data }: { data: ScoreData }) {
   const statusBar = (
     <div className="sticky top-0 z-10 -mx-4 mt-3 flex flex-wrap items-center justify-between gap-2 border-b border-neutral-300 bg-white px-4 py-2">
       <span className={online ? "text-sm" : "text-sm font-semibold text-amber-800"}>
-        {!online ? g.offline : pendingCount ? g.queued(pendingCount) : g.allSent}
+        {[!online && g.offline, pendingCount ? g.queued(pendingCount) : online && g.allSent].filter(Boolean).join(" · ")}
       </span>
       {pendingCount > 0 && online && (
         <button onClick={() => void sync()} className="min-h-11 rounded border border-neutral-400 px-3 text-sm">

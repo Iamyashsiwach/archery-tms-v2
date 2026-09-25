@@ -9,7 +9,9 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "tsc -p tsconfig.test.json && node --test dist/lib/rules/rules.test.js dist/lib/*.test.js",
-    "db:reset": "supabase db reset"
+    "db:reset": "supabase db reset",
+    "e2e": "playwright test",
+    "db:types": "supabase gen types typescript --local --schema public > src/lib/database.types.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
@@ -22,6 +24,7 @@
     "zod": "^4.1.12"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^22",
     "@types/react": "^19",
@@ -30,5 +33,8 @@
     "eslint-config-next": "16.3.5",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }
