@@ -12,3 +12,7 @@ supabase/.temp/
 # Playwright
 test-results/
 playwright-report/
+
+# Markdown stays local: only README.md is published
+*.md
+!/README.md
