@@ -29,6 +29,8 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
+// /display is public and cached at the CDN; running the proxy there would
+// cost a function call per view and gain nothing. sw.js must stay static.
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|sw.js|display/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
 };

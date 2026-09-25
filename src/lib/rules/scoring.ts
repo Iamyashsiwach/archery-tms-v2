@@ -5,7 +5,7 @@ import type {
   EndResult,
   RankingEntry,
   ScoreTotals,
-} from "./types.js";
+} from "./types";
 
 /** Points an arrow is worth. The inner ten scores 10, same as an outer ten. */
 export function arrowPoints(arrow: Arrow, maxRingValue = 10): number {

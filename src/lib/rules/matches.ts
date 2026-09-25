@@ -1,5 +1,5 @@
-import { totalEnds } from "./scoring.js";
-import type { End, MatchSpec, MatchState } from "./types.js";
+import { totalEnds } from "./scoring";
+import type { End, MatchSpec, MatchState } from "./types";
 
 const RING = { maxRingValue: 10 };
 

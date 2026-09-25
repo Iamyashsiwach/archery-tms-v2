@@ -1,4 +1,4 @@
-import type { MatchSpec, RoundSpec } from "./types.js";
+import type { MatchSpec, RoundSpec } from "./types";
 
 /**
  * Qualification rounds. Target archery only.

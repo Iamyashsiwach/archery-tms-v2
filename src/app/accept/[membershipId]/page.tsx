@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { guidance } from "@/content/guidance";
@@ -24,20 +25,23 @@ export default async function AcceptPage({
   // means this user has already joined.
   const { data: joined } = await supabase
     .from("memberships")
-    .select("role, tournaments(name)")
+    .select("role, tournaments(id, name)")
     .eq("id", membershipId)
     .eq("user_id", userId)
     .eq("status", "ACTIVE")
-    .maybeSingle()
-    // Many-to-one embeds come back as an object; without generated types supabase-js assumes an array.
-    .overrideTypes<{ role: string; tournaments: { name: string } | null }, { merge: false }>();
+    .maybeSingle();
 
   return (
     <main className="mx-auto max-w-sm p-6">
       <h1 className="text-2xl font-medium">{guidance.accept.title}</h1>
 
       {joined ? (
-        <p className="mt-4 text-lg">{guidance.accept.joined(joined.tournaments?.name ?? "", joined.role)}</p>
+        <>
+          <p className="mt-4 text-lg">{guidance.accept.joined(joined.tournaments?.name ?? "", joined.role)}</p>
+          <Link href={`/t/${joined.tournaments?.id}`} className={`${button} inline-flex items-center justify-center bg-neutral-900 px-5 text-white`}>
+            {guidance.accept.open}
+          </Link>
+        </>
       ) : (
         <>
           <p className="mt-4 text-neutral-700">{guidance.accept.body}</p>
