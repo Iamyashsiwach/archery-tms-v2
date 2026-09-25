@@ -155,7 +155,16 @@ It was created as a Vercel Marketplace resource (`supabase-almond-battery`), so
 Only the Vercel project's Git deploys are retired.
 
 1. **AWS account and credentials.**
-   - Create the account on the Free plan, then run `aws configure` or `aws sso login` on the deploying machine.
+   - Create the account on the Free plan. Deploy as an IAM admin user signed in with
+     `aws login` (short-lived credentials); never with root access keys.
+   - SST cannot read `aws login` sessions directly, so add this bridge to
+     `~/.aws/config` and run every `sst` command with `AWS_PROFILE=sst`
+     (e.g. `AWS_PROFILE=sst npm run deploy`):
+     ```
+     [profile sst]
+     credential_process = aws configure export-credentials --profile default --format process
+     region = us-east-1
+     ```
    - Create a $1 monthly budget with an email alert.
    - The Free plan ends 6 months after sign-up: upgrade to the Paid plan before then.
      The always-free allowances continue on the Paid plan.
